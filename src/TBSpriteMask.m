@@ -10,129 +10,238 @@
 
 #define DRAW_SETUP()                                                                \
 do {                                                                                \
-    ccGLEnable( _mask.glServerState );                                              \
-    NSAssert1(_mask.shaderProgram, @"No shader program set for node: %@", _mask);   \
-    [_mask.shaderProgram use];                                                      \
-    [_mask.shaderProgram setUniformsForBuiltins];                                   \
+    ccGLEnable( self.sprite.glServerState );                                              \
+    NSAssert1(self.sprite.shaderProgram, @"No shader program set for node: %@", self);   \
+    [self.sprite.shaderProgram use];                                                      \
+    [self.sprite.shaderProgram setUniformsForBuiltins];                                   \
 } while(0)                                                                          \
+
+@interface TBSpriteMask ()
+
+@end
 
 @implementation TBSpriteMask
 
--(id) initWithSprite:(CCSprite*)sprite andMaskSprite:(CCSprite*)maskSprite
-{
-    return [self initWithSprite:sprite andMaskSprite:maskSprite andType:FALSE];
++(instancetype)spriteWithSprite:(CCSprite *)sprite maskSpriteFrameName:(NSString *)maskSpriteFrameName {
+    return [self spriteWithSprite:sprite maskSpriteFrameName:maskSpriteFrameName positiveMask:NO];
 }
 
--(id) initWithSprite:(CCSprite*)sprite andMaskFile:(NSString*)maskFile
-{
-    return [self initWithSprite:sprite andMaskFile:maskFile andType:FALSE];
++(instancetype)spriteWithSprite:(CCSprite *)sprite maskSpriteFrameName:(NSString *)maskSpriteFrameName positionMask:(CGPoint)positionMask {
+    return [self spriteWithSprite:sprite maskSpriteFrameName:maskSpriteFrameName positionMask:positionMask positiveMask:NO];
 }
 
--(id) initWithFile:(NSString *)file andMaskSprite:(CCSprite*)maskSprite
-{
-    return [self initWithFile:file andMaskSprite:maskSprite andType:FALSE];
++(instancetype)spriteWithSprite:(CCSprite *)sprite maskSpriteFrameName:(NSString *)maskSpriteFrameName positiveMask:(BOOL)positive {
+    return [self spriteWithSprite:sprite maskSpriteFrameName:maskSpriteFrameName positionMask:ccp( 0.5, 0.5 ) positiveMask:positive];
 }
 
--(id) initWithFile:(NSString *)file andMaskFile:(NSString*)maskFile;
-{
-    return [self initWithFile:file andMaskFile:maskFile andType:FALSE];
++(instancetype)spriteWithSprite:(CCSprite *)sprite maskSpriteFrameName:(NSString *)maskSpriteFrameName positionMask:(CGPoint)positionMask positiveMask:(BOOL)positive {
+    TBSpriteMask *tbSpriteMask = [super new];
+    tbSpriteMask.sprite = sprite;
+    tbSpriteMask.mask = [CCSprite spriteWithSpriteFrameName:maskSpriteFrameName];
+    tbSpriteMask.type = positive;
+    tbSpriteMask.positionMask = positionMask;
+    [tbSpriteMask buildMaskWithTexture:tbSpriteMask.mask];
+    
+    tbSpriteMask.sprite.visible = NO;
+    [tbSpriteMask addChild:tbSpriteMask.sprite];
+    
+    return tbSpriteMask;
 }
 
--(id) initWithSprite:(CCSprite*)sprite andMaskSprite:(CCSprite*)maskSprite andType:(BOOL)type;
-{
-    self = [super init];
-    if (self) {
-        _mask = [sprite retain];
-        _type = type;
-        [self builtWithTexture:_mask andTexture:[[maskSprite texture] retain]];
-    }
-    return self;
++(instancetype)spriteWithSpriteFrameName:(NSString *)spriteFrameName maskSpriteFrameName:(NSString *)maskSpriteFrameName {
+    return [self spriteWithSpriteFrameName:spriteFrameName maskSpriteFrameName:maskSpriteFrameName positiveMask:NO];
 }
 
--(id) initWithSprite:(CCSprite*)sprite andMaskFile:(NSString*)maskFile andType:(BOOL)type;
-{
-    self = [super init];
-    if(self){
-        _mask = [sprite retain];
-        _type = type;
-        [self builtWithTexture:_mask andTexture:[[CCTextureCache sharedTextureCache] addImage:maskFile]];
-    }    
-    return self;
++(instancetype)spriteWithSpriteFrameName:(NSString *)spriteFrameName maskSpriteFrameName:(NSString *)maskSpriteFrameName positionMask:(CGPoint)positionMask {
+    return [self spriteWithSpriteFrameName:spriteFrameName maskSpriteFrameName:maskSpriteFrameName positionMask:positionMask positiveMask:NO];
 }
 
--(id) initWithFile:(NSString *)file andMaskSprite:(CCSprite*)maskSprite andType:(BOOL)type;
-{
-    self = [super init];
-    if (self) {
-        _mask = [[CCSprite alloc] initWithFile:file];
-        _type = type;
-        [self builtWithTexture:_mask andTexture:[[maskSprite texture] retain]];
-    }
-    return self;
++(instancetype)spriteWithSpriteFrameName:(NSString *)spriteFrameName maskSpriteFrameName:(NSString *)maskSpriteFrameName positiveMask:(BOOL)positive {
+    return [self spriteWithSpriteFrameName:spriteFrameName maskSpriteFrameName:maskSpriteFrameName positionMask:ccp( 0.0, 0.0 ) positiveMask:positive];
 }
 
--(id) initWithFile:(NSString *)file andMaskFile:(NSString*)maskFile andType:(BOOL)type;
-{
-    self = [super init];
-    if (self) {
-        _mask = [[CCSprite alloc] initWithFile:file];
-        _type = type;
-        [self builtWithTexture:_mask andTexture:[[CCTextureCache sharedTextureCache] addImage:maskFile]];
-    }    
-    return self;
++(instancetype)spriteWithSpriteFrameName:(NSString *)spriteFrameName maskSpriteFrameName:(NSString *)maskSpriteFrameName positionMask:(CGPoint)positionMask positiveMask:(BOOL)positive {
+    return [self spriteWithSprite:[CCSprite spriteWithSpriteFrameName:spriteFrameName] maskSpriteFrameName:maskSpriteFrameName positionMask:ccp( 0.0, 0.0 ) positiveMask:positive];
 }
 
-- (void)builtWithTexture:(CCSprite *)mask andTexture:(CCTexture2D*)texture
-{
-    [_mask setAnchorPoint:CGPointZero];
-    [self buildMaskWithTexture:texture];
-}
 
--(void) buildMaskWithTexture:(CCTexture2D*)texture
+
+-(void) buildMaskWithTexture:(CCSprite*)texture
 {
+    self.sprite.anchorPoint = CGPointZero;
     NSString *shaderName =  _type ? @"MaskPositive.fsh" : @"MaskNegative.fsh";
     const GLchar * fragmentSource = (GLchar*) [[NSString stringWithContentsOfFile:[[CCFileUtils sharedFileUtils] fullPathFromRelativePath:shaderName] encoding:NSUTF8StringEncoding error:nil] UTF8String];
     
-    _mask.shaderProgram = [[CCGLProgram alloc] initWithVertexShaderByteArray:ccPositionTextureA8Color_vert
-                                                    fragmentShaderByteArray:fragmentSource];
-    [_mask.shaderProgram addAttribute:kCCAttributeNamePosition index:kCCVertexAttrib_Position];
-    [_mask.shaderProgram addAttribute:kCCAttributeNameTexCoord index:kCCVertexAttrib_TexCoords];
-    [_mask.shaderProgram addAttribute:kCCAttributeNameColor index:kCCVertexAttrib_Color];
-    [_mask.shaderProgram link];
-    [_mask.shaderProgram updateUniforms];
+    self.sprite.shaderProgram = [[CCGLProgram alloc] initWithVertexShaderByteArray:ccPositionTextureA8Color_vert fragmentShaderByteArray:fragmentSource];
+    [self.sprite.shaderProgram addAttribute:kCCAttributeNamePosition index:kCCVertexAttrib_Position];
+    [self.sprite.shaderProgram addAttribute:kCCAttributeNameTexCoord index:kCCVertexAttrib_TexCoords];
+    [self.sprite.shaderProgram addAttribute:kCCAttributeNameColor index:kCCVertexAttrib_Color];
+    [self.sprite.shaderProgram link];
+    [self.sprite.shaderProgram updateUniforms];
     
-    _maskLocation = glGetUniformLocation(_mask.shaderProgram->_program, "u_overlayTexture");
-    glUniform1i(_maskLocation, 1);
-    _maskTexture = texture;
-    [_maskTexture setAliasTexParameters];
+    _maskLocation = glGetUniformLocation(self.sprite.shaderProgram->_program, "u_maskTexture");
+    [self.sprite.shaderProgram setUniformLocation:_maskLocation withI1:1];
     
-    [_mask.shaderProgram use];
+    self.mask = texture;
+    [self.mask.texture setAliasTexParameters];
+    _rectTexture = glGetUniformLocation(self.sprite.shaderProgram->_program, "v_rectTexture");
+    _rectMask = glGetUniformLocation(self.sprite.shaderProgram->_program, "v_rectMask");
+    _rectDrawMask = glGetUniformLocation(self.sprite.shaderProgram->_program, "v_rectDrawMask");
+    _startMask = glGetUniformLocation(self.sprite.shaderProgram->_program, "v_posStartMask");
+    _ratioMaskSprite = glGetUniformLocation(self.sprite.shaderProgram->_program, "v_ratioMaskSprite");
+    
+    [self updateUniforms];
+    
+    [self.sprite.shaderProgram use];
     ccGLBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, [_maskTexture name]);
+    glBindTexture(GL_TEXTURE_2D, self.mask.texture.name);
     glActiveTexture(GL_TEXTURE0);
+    
 }
 
--(void) draw
-{    
+
+- (void)updateUniforms {
+    //L'idée ici c'est de trouver les coordonnées du masque sur le sprite pour les passer au shader qui affichera le sprite masqué
+    //Je trouve ce rectangle à partir des coordonnées des quad et des size du sprite et du masque
+    //On a besoin de trouver la position a laquelle on doit placer la texture du masque par rapport à celle du sprite
+    //finalement dans le cas ou les deux textures seraient differentes on doit appliquer un ratio entre les coordonnées des deux textures
+    
+    // TODO : Prendre en charge l'anchorPoint de self
+    // TODO : Corriger un bug de centrage sur les sprite plus petites que le masque
+    
+    //tailles en % dans leurs textures d'origine
+    CGSize percentSpriteSize = CGSizeMake( self.sprite.quad.tr.texCoords.u - self.sprite.quad.bl.texCoords.u, self.sprite.quad.bl.texCoords.v - self.sprite.quad.tr.texCoords.v );
+    CGSize percentMaskSize = CGSizeMake( self.mask.quad.tr.texCoords.u - self.mask.quad.bl.texCoords.u, self.mask.quad.bl.texCoords.v - self.mask.quad.tr.texCoords.v );
+    //tailles en pixels affichés
+    CGSize pixelSpriteSize = CGSizeMake( self.sprite.quad.tr.vertices.x-self.sprite.quad.bl.vertices.x, self.sprite.quad.tr.vertices.y-self.sprite.quad.bl.vertices.y );
+    CGSize pixelMaskSize = CGSizeMake( self.mask.contentSize.width - ( self.mask.contentSize.width - self.mask.quad.tr.vertices.x ) - self.mask.quad.bl.vertices.x, self.mask.contentSize.height - ( self.mask.contentSize.height - self.mask.quad.tr.vertices.y ) - self.mask.quad.bl.vertices.y );
+    //ratios
+    CGSize ratioPixelPercentSprite = CGSizeMake(percentSpriteSize.width/pixelSpriteSize.width, percentSpriteSize.height/pixelSpriteSize.height);
+    CGSize ratioPixelPercentMask = CGSizeMake(percentMaskSize.width/pixelMaskSize.width, percentMaskSize.height/pixelMaskSize.height);
+    //les rects de sprite et masque
+    CGRect pixelSpriteRect = CGRectMake( self.sprite.quad.tl.vertices.x, self.sprite.contentSize.height-self.sprite.quad.tl.vertices.y, pixelSpriteSize.width, pixelSpriteSize.height);
+    CGRect percentSpriteRect = CGRectMake(self.sprite.quad.tl.texCoords.u-pixelSpriteRect.origin.x * ratioPixelPercentSprite.width,
+                                          self.sprite.quad.tl.texCoords.v-pixelSpriteRect.origin.y * ratioPixelPercentSprite.height,
+                                          self.sprite.contentSize.width * ratioPixelPercentSprite.width,// + (self.sprite.contentSize.width-self.sprite.quad.br.vertices.x)/pixelSpriteSize.width*percentSpriteSize.width,
+                                          self.sprite.contentSize.height * ratioPixelPercentSprite.height);// + (self.sprite.contentSize.height-self.sprite.quad.br.vertices.y)/pixelSpriteSize.height*percentSpriteSize.height);
+    //offset avec l'anchorpoint
+    CGPoint anchoredOffset = ccp(((self.sprite.contentSize.width) * self.anchorPointMask.x ) - ((self.mask.contentSize.width) * self.anchorPointMask.x ) + self.positionMask.x,
+                                 ((self.sprite.contentSize.height) * (self.anchorPointMask.y) ) - ((self.mask.contentSize.height) * (self.anchorPointMask.y) ) + self.positionMask.y);
+    
+    CGRect pixelMaskRect = CGRectMake( self.mask.quad.tl.vertices.x+anchoredOffset.x, self.mask.contentSize.height-self.mask.quad.tl.vertices.y+anchoredOffset.y, pixelMaskSize.width, pixelMaskSize.height );
+    CGRect percentMaskRect = CGRectMake(self.mask.quad.tl.texCoords.u-pixelMaskRect.origin.x * ratioPixelPercentMask.width,
+                                        self.mask.quad.tl.texCoords.v-pixelMaskRect.origin.y * ratioPixelPercentMask.height,
+                                        self.mask.contentSize.width * ratioPixelPercentMask.width,// + (self.mask.contentSize.width-self.mask.quad.br.vertices.x)/pixelMaskSize.width*percentMaskSize.width,
+                                        self.mask.contentSize.height * ratioPixelPercentMask.height);// + (self.mask.contentSize.height-self.mask.quad.br.vertices.y)/pixelMaskSize.height*percentMaskSize.height);
+    //intersection des deux rects affichés
+    CGRect anchoredMaskRect = CGRectMake( pixelMaskRect.origin.x, pixelMaskRect.origin.y, pixelMaskRect.size.width, pixelMaskRect.size.height );
+    CGRect anchoredIntersect = CGRectIntersection( pixelSpriteRect, anchoredMaskRect);
+    
+    //rect pour la definir la zone autorisée à afficher la sprite ( en % de la texture de sprite )
+    CGRect validSpriteRect = CGRectMake(( percentSpriteRect.origin.x + anchoredIntersect.origin.x * ratioPixelPercentSprite.width ),
+                                        ( percentSpriteRect.origin.y + anchoredIntersect.origin.y * ratioPixelPercentSprite.height ) ,
+                                        ( anchoredIntersect.size.width * ratioPixelPercentSprite.width ),
+                                        ( anchoredIntersect.size.height * ratioPixelPercentSprite.height ));
+    //position de debut d'affichage du masque en prenant en compte la position du masque sur la sprite ( en % de la texture du masque )
+    CGPoint posStartMask = ccp(percentMaskRect.origin.x + (pixelSpriteRect.origin.x) * ratioPixelPercentMask.width,
+                               percentMaskRect.origin.y + (pixelSpriteRect.origin.y) * ratioPixelPercentMask.height);
+    //ratio entre les % de texture de sprite et de masque ( 1 si la meme texture )
+    CGPoint ratioMaskSprite = ccp((pixelSpriteSize.width / pixelMaskSize.width) / (percentSpriteSize.width/percentMaskSize.width),
+                                  (pixelSpriteSize.height / pixelMaskSize.height) / (percentSpriteSize.height/percentMaskSize.height));
+//    NSLog(@"validSpriteRectPixel%@", NSStringFromCGRect(anchoredIntersect));
+    //envoi des infos au shader
+    [self.sprite.shaderProgram setUniformLocation:_rectTexture withF1:self.sprite.quad.tl.texCoords.u f2:self.sprite.quad.tl.texCoords.v f3:percentSpriteSize.width f4:percentSpriteSize.height];
+    [self.sprite.shaderProgram setUniformLocation:_rectMask withF1:pixelMaskRect.origin.x f2:pixelMaskRect.origin.y f3:percentMaskSize.width f4:percentMaskSize.height];
+    [self.sprite.shaderProgram setUniformLocation:_rectDrawMask
+                                           withF1:validSpriteRect.origin.x
+                                               f2:validSpriteRect.origin.y
+                                               f3:validSpriteRect.size.width
+                                               f4:validSpriteRect.size.height];
+    [self.sprite.shaderProgram setUniformLocation:_startMask withF1:posStartMask.x f2:posStartMask.y];
+    [self.sprite.shaderProgram setUniformLocation:_ratioMaskSprite withF1:ratioMaskSprite.x f2:ratioMaskSprite.y];
+    
+    self.texture.hasPremultipliedAlpha = YES;
+    self.sprite.texture.hasPremultipliedAlpha = YES;
+}
+
+//- (void)updateUniforms {
+//    //L'idée ici c'est de trouver les coordonnées du masque sur le sprite pour les passer au shader qui affichera le sprite masqué
+//    //Je trouve ce rectangle à partir des coordonnées des quad et des size du sprite et du masque
+//    //On a besoin de trouver la position a laquelle on doit placer la texture du masque par rapport à celle du sprite
+//    //finalement dans le cas ou les deux textures seraient differentes on doit appliquer un ratio entre les coordonnées des deux textures
+//    
+//    // TODO : Prendre en charge l'anchorPoint de self
+//    // TODO : Corriger un bug de centrage sur les sprite plus petites que le masque
+//    
+//    //tailles en % dans leurs textures d'origine
+//    CGSize pixelSpriteSize = CGSizeMake( self.sprite.quad.tr.texCoords.u - self.sprite.quad.bl.texCoords.u, self.sprite.quad.bl.texCoords.v - self.sprite.quad.tr.texCoords.v );
+//    CGSize pixelMaskSize = CGSizeMake( self.mask.quad.tr.texCoords.u - self.mask.quad.bl.texCoords.u, self.mask.quad.bl.texCoords.v - self.mask.quad.tr.texCoords.v );
+//    //tailles en pixels affichés
+//    CGSize drawSpriteSize = CGSizeMake( self.sprite.contentSize.width - ( self.sprite.contentSize.width - self.sprite.quad.tr.vertices.x ) - self.sprite.quad.bl.vertices.x, self.sprite.contentSize.height - ( self.sprite.contentSize.height - self.sprite.quad.tr.vertices.y ) - self.sprite.quad.bl.vertices.y );
+//    CGSize drawMaskSize = CGSizeMake( self.mask.contentSize.width - ( self.mask.contentSize.width - self.mask.quad.tr.vertices.x ) - self.mask.quad.bl.vertices.x, self.mask.contentSize.height - ( self.mask.contentSize.height - self.mask.quad.tr.vertices.y ) - self.mask.quad.bl.vertices.y );
+//    //les rects de sprite et masque
+//    CGRect spriteRect = CGRectMake( self.sprite.quad.bl.vertices.x, self.sprite.quad.bl.vertices.y, drawSpriteSize.width, drawSpriteSize.height);
+//    CGRect maskRect = CGRectMake( self.mask.quad.bl.vertices.x, self.mask.quad.bl.vertices.y, drawMaskSize.width, drawMaskSize.height );
+//    //intersection des deux rects affichés
+//    CGRect intersect = CGRectIntersection( spriteRect, maskRect);
+//    //offset avec l'anchorpoint
+//    CGPoint anchoredOffset = ccp(((self.sprite.contentSize.width) * self.anchorPointMask.x ) - ((self.mask.contentSize.width) * self.anchorPointMask.x ) + self.positionMask.x,
+//                                 ((self.sprite.contentSize.height) * (1.0-self.anchorPointMask.y) ) - ((self.mask.contentSize.height) * (1.0-self.anchorPointMask.y) ) - self.positionMask.y);
+//    CGRect anchoredMaskRect = CGRectMake( maskRect.origin.x+anchoredOffset.x, maskRect.origin.y+anchoredOffset.y, maskRect.size.width, maskRect.size.height );
+//    CGRect anchoredIntersect = CGRectIntersection( spriteRect, anchoredMaskRect);
+//    //rect pour la definir la zone autorisée à afficher la sprite ( en % de la texture de sprite )
+//    CGRect validSpriteRectPixel = CGRectMake(( anchoredIntersect.origin.x - spriteRect.origin.x + (anchoredOffset.x - spriteRect.origin.x ) ),
+//                                             ( anchoredIntersect.origin.y - spriteRect.origin.y + (anchoredOffset.y - ( self.sprite.contentSize.height - self.sprite.quad.tr.vertices.y )) ) ,
+//                                             ( anchoredIntersect.size.width + spriteRect.origin.x ),
+//                                             ( anchoredIntersect.size.height ));
+//    CGRect validSpriteRect = CGRectMake(( validSpriteRectPixel.origin.x ) / ( drawSpriteSize.width / pixelSpriteSize.width ),
+//                                        ( validSpriteRectPixel.origin.y ) / ( drawSpriteSize.height / pixelSpriteSize.height ),
+//                                        ( validSpriteRectPixel.size.width ) / ( drawSpriteSize.width / pixelSpriteSize.width ),
+//                                        ( validSpriteRectPixel.size.height ) / ( drawSpriteSize.height / pixelSpriteSize.height ));
+//    //position de debut d'affichage du masque en prenant en compte la position du masque sur la sprite ( en % de la texture du masque )
+//    CGPoint posStartMaskPixel = ccp((anchoredIntersect.origin.x - (anchoredOffset.x - maskRect.origin.x )),
+//                                    (- (anchoredOffset.y - ( self.sprite.contentSize.height - self.sprite.quad.tr.vertices.y))));
+//    CGPoint posStartMask = ccp(-(validSpriteRectPixel.origin.x)/drawMaskSize.width*pixelMaskSize.width+self.mask.quad.tl.texCoords.u,
+//                               (-validSpriteRectPixel.origin.y)/(drawMaskSize.height/pixelMaskSize.height)+self.mask.quad.tl.texCoords.v);
+//    //ratio entre les % de texture de sprite et de masque ( 1 si la meme texture )
+//    CGPoint ratioMaskSprite = ccp((drawSpriteSize.width / drawMaskSize.width) / (pixelSpriteSize.width/pixelMaskSize.width),
+//                                  (drawSpriteSize.height / drawMaskSize.height) / (pixelSpriteSize.height/pixelMaskSize.height));
+//    NSLog(@"validSpriteRectPixel%@", NSStringFromCGRect(validSpriteRectPixel));
+//    //envoi des infos au shader
+//    [self.sprite.shaderProgram setUniformLocation:_rectTexture withF1:self.sprite.quad.tl.texCoords.u f2:self.sprite.quad.tl.texCoords.v f3:pixelSpriteSize.width f4:pixelSpriteSize.height];
+//    [self.sprite.shaderProgram setUniformLocation:_rectMask withF1:maskRect.origin.x+self.mask.quad.tl.texCoords.u f2:maskRect.origin.y+self.mask.quad.tl.texCoords.v f3:pixelMaskSize.width f4:pixelMaskSize.height];
+//    [self.sprite.shaderProgram setUniformLocation:_rectDrawMask
+//                                           withF1:validSpriteRect.origin.x+self.sprite.quad.tl.texCoords.u
+//                                               f2:validSpriteRect.origin.y+self.sprite.quad.tl.texCoords.v
+//                                               f3:validSpriteRect.size.width
+//                                               f4:validSpriteRect.size.height];
+//    [self.sprite.shaderProgram setUniformLocation:_startMask withF1:posStartMask.x f2:posStartMask.y];
+//    [self.sprite.shaderProgram setUniformLocation:_ratioMaskSprite withF1:ratioMaskSprite.x f2:ratioMaskSprite.y];
+//    
+//    self.texture.hasPremultipliedAlpha = YES;
+//    self.sprite.texture.hasPremultipliedAlpha = YES;
+//}
+
+-(void) draw {
     DRAW_SETUP();
+    
+    [self updateUniforms];
     
     ccGLEnableVertexAttribs(kCCVertexAttribFlag_PosColorTex);
     ccGLBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    [_mask.shaderProgram setUniformsForBuiltins];
+    [self.sprite.shaderProgram setUniformsForBuiltins];
     
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture( GL_TEXTURE_2D, [_mask.texture name] );
-    glUniform1i(_textureLocation, 0);
-    
+    [self.sprite.texture setAliasTexParameters];
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture( GL_TEXTURE_2D, [_maskTexture name] );
-    glUniform1i(_maskLocation, 1);
+    glBindTexture( GL_TEXTURE_2D, self.mask.texture.name );
+    [self.sprite.shaderProgram setUniformLocation:_maskLocation withI1:1];
     
-    #define kQuadSize sizeof(_mask.quad.bl)
-    ccV3F_C4B_T2F_Quad q = _mask.quad;
+#define kQuadSize sizeof(self.sprite.quad.bl)
+//	long offset = (long)&_quad;
+    ccV3F_C4B_T2F_Quad q = self.sprite.quad;
     long offset = (long)&q;
-    
+
     NSInteger diff = offsetof( ccV3F_C4B_T2F, vertices);
     glVertexAttribPointer(kCCVertexAttrib_Position, 3, GL_FLOAT, GL_FALSE, kQuadSize, (void*) (offset + diff));
     
@@ -146,28 +255,13 @@ do {                                                                            
     glActiveTexture(GL_TEXTURE0);
 }
 
--(void)updateWithSprite:(CCSprite*)sprite
-{
-    [_mask.shaderProgram release];
-    [_mask release];
-    _mask = nil;
-    
-    _mask = [sprite retain];
-    [self builtWithTexture:_mask andTexture:_maskTexture];
-}
-
--(void)updateWithFile:(NSString *)file
-{
-    [self updateWithSprite:[[CCSprite alloc] initWithFile:file]];
-}
-
 -(CCTexture2D *)getTexture
 {
-    CCRenderTexture *renderTexture = [CCRenderTexture renderTextureWithWidth:_mask.contentSize.width height:_mask.contentSize.height];
+    CCRenderTexture *renderTexture = [CCRenderTexture renderTextureWithWidth:self.contentSize.width height:self.contentSize.height];
     [renderTexture begin];
-    _mask.flipY = YES;
-    [_mask draw];
-    _mask.flipY = NO;
+    self.flipY = YES;
+    [self draw];
+    self.flipY = NO;
     [renderTexture end];
     
     return renderTexture.sprite.texture;
@@ -175,15 +269,15 @@ do {                                                                            
 
 - (void)dealloc
 {
-    [_mask release];
+    //[_mask release];
+    //self = nil;
+    
+    //[_maskTexture release];
     _mask = nil;
     
-    [_maskTexture release];
-    _maskTexture = nil;
+    //[_mask.shaderProgram release];
     
-    [_mask.shaderProgram release];
-    
-    [super dealloc];
+    //[super dealloc];
 }
 
 @end

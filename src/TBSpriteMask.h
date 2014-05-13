@@ -10,26 +10,39 @@
 
 @interface TBSpriteMask : CCSprite
 {
-    CCSprite*  _mask;
-    CCTexture2D* _maskTexture;
-    GLuint _textureLocation;
     GLuint _maskLocation;
-    BOOL _type;
+    GLuint _rectTexture;
+    GLuint _rectMask;
+    GLuint _rectDrawMask;
+    GLuint _maskCoord;
+    GLuint _startMask;
+    GLuint _ratioMaskSprite;
+    
+//    CGPoint _ratioMask;
+//    CGPoint _startMask;
+    
+    CGPoint _startDrawMask;
+    CGPoint _sizeDrawMask;
 }
 
--(id)initWithSprite:(CCSprite*)sprite andMaskSprite:(CCSprite*)maskSprite;
--(id)initWithSprite:(CCSprite*)sprite andMaskFile:(NSString*)maskFile;
--(id)initWithFile:(NSString *)file andMaskFile:(NSString*)maskFile;
--(id)initWithFile:(NSString *)file andMaskSprite:(CCSprite*)maskSprite;
+@property (nonatomic) CGPoint positionSpriteStart;
+@property (nonatomic) CGPoint anchorPointMask;
+@property (nonatomic) CGPoint positionMask;
+@property (nonatomic) BOOL type;
+@property (nonatomic,strong) CCSprite *sprite;
+@property (nonatomic,strong) CCSprite *mask;
 
--(id)initWithSprite:(CCSprite*)sprite andMaskSprite:(CCSprite*)maskSprite andType:(BOOL)type;
--(id)initWithSprite:(CCSprite*)sprite andMaskFile:(NSString*)maskFile andType:(BOOL)type;
--(id)initWithFile:(NSString *)file andMaskFile:(NSString*)maskFile andType:(BOOL)type;
--(id)initWithFile:(NSString *)file andMaskSprite:(CCSprite*)maskSprite andType:(BOOL)type;
++(instancetype)spriteWithSprite:(CCSprite *)sprite maskSpriteFrameName:(NSString *)maskSpriteFrameName;
++(instancetype)spriteWithSprite:(CCSprite *)sprite maskSpriteFrameName:(NSString *)maskSpriteFrameName positionMask:(CGPoint)positionMask;
++(instancetype)spriteWithSprite:(CCSprite *)sprite maskSpriteFrameName:(NSString *)maskSpriteFrameName positiveMask:(BOOL)positive;
++(instancetype)spriteWithSprite:(CCSprite *)sprite maskSpriteFrameName:(NSString *)maskSpriteFrameName positionMask:(CGPoint)positionMask positiveMask:(BOOL)positive;
 
--(void)updateWithSprite:(CCSprite*)sprite;
--(void)updateWithFile:(NSString *)file;
++(instancetype)spriteWithSpriteFrameName:(NSString *)spriteFrameName maskSpriteFrameName:(NSString *)maskSpriteFrameName;
++(instancetype)spriteWithSpriteFrameName:(NSString *)spriteFrameName maskSpriteFrameName:(NSString *)maskSpriteFrameName positionMask:(CGPoint)positionMask;
++(instancetype)spriteWithSpriteFrameName:(NSString *)spriteFrameName maskSpriteFrameName:(NSString *)maskSpriteFrameName positiveMask:(BOOL)positive;
++(instancetype)spriteWithSpriteFrameName:(NSString *)spriteFrameName maskSpriteFrameName:(NSString *)maskSpriteFrameName positionMask:(CGPoint)positionMask positiveMask:(BOOL)positive;
 
+-(void) buildMaskWithTexture:(CCSprite*)texture;
 -(CCTexture2D *)getTexture;
 
 @end
